@@ -36,12 +36,9 @@ def load_data(source_directory):
                 for _ in range(num_examples):
                     example = list(map(float, f.readline().split()))
                     label = int(example[num_pixels + 2])
-
-                    # filter out labels of 10 people
-                    if label <= 9:
-                        features = example[:num_pixels]
-                        labels.append(label)
-                        features_list.append(features)
+                    features = example[:num_pixels]
+                    labels.append(label)
+                    features_list.append(features)
 
     return np.array(features_list), np.array(labels)
 
@@ -107,7 +104,7 @@ data_source_directory = os.path.join(working_directory, 'famous48')
 X, y = load_data(data_source_directory)
 
 # Calculate the mean number of photos of each person (labels 0-9)
-mean_photos_per_person = len(y) / 10
+mean_photos_per_person = len(y) / 48
 print("Mean number of photos of each person:", mean_photos_per_person)
 
 # splitting the data into train and test sets
@@ -129,10 +126,10 @@ grid['learning_rate'] = [0.0001, 0.001, 0.01, 0.1, 1.0]
 
 # define the evaluation procedure
 cv = RepeatedStratifiedKFold(n_splits=10, n_repeats=3, random_state=1)
-
+#dla calego
 # define the grid search procedure
 grid_search = GridSearchCV(estimator=model, param_grid=grid, n_jobs=-1, cv=cv, scoring='accuracy')
-logistic_regression = LogisticRegression(max_iter=1000, solver='saga', tol=0.1, C=10, penalty='l1')
+logistic_regression = LogisticRegression(max_iter=1000, solver='saga', tol=0.1, C=1, penalty='l2')
 linear_svc = LinearSVC(C=0.01)
 decision_tree = DecisionTreeClassifier(criterion='gini', max_depth=4)
 random_forest = RandomForestClassifier(max_depth=None, max_features='sqrt', min_samples_leaf=1, min_samples_split=2, n_estimators=500)
@@ -152,7 +149,11 @@ for classifier, name in base_classifiers.items():
     ada_clf = AdaBoostClassifier(estimator=classifier, algorithm='SAMME')
     grid_search_ada = GridSearchCV(ada_clf, param_grid_ada, cv=5, scoring='accuracy', n_jobs=-1).fit(X_train, y_train)
     print("Best Ada Boost Parameters for " + name + ": " + str(grid_search_ada.best_params_))
+    print("Score: " + str(grid_search_ada.best_score_))
     print()
+    accuracy_scores.append(grid_search_ada.best_score_)
+
+
 
 # Plotting the accuracy scores
 x_labels = ['Logistic Regression', 'LinearSVC', 'Decision Tree', 'Random Forest', 'SGD Classifier']
@@ -163,9 +164,25 @@ plt.xticks(rotation=45, ha='right')
 plt.tight_layout()
 plt.show()
 
-
+# incerfase number of photos
 # probowac z innym learning_rate=0.1 ten najlepszy 
 model = AdaBoostClassifier(estimator=, n_estimators=300, algorithm='SAMME')
+
+# 10 people
+# Classifier: Logistic Regression
+# Best Ada Boost Parameters for Logistic Regression: {'learning_rate': 0.0001, 'n_estimators': 10}
+#lr_ada = AdaBoostClassifier(estimator=logistic_regression, learning_rate=0.0001, algorithm='SAMME', n_estimators=10)
+# Best Ada Boost Parameters for LinearSVC: {'learning_rate': 0.01, 'n_estimators': 500}
+
+# Classifier: Decision Tree
+# Best Ada Boost Parameters for Decision Tree: {'learning_rate': 1.0, 'n_estimators': 500}
+
+# Classifier: Random Forest
+# Best Ada Boost Parameters for Random Forest: {'learning_rate': 0.001, 'n_estimators': 500}
+
+# Classifier: SGD Classifier
+# Best Ada Boost Parameters for SGD Classifier: {'learning_rate': 1.0, 'n_estimators': 500}
+    
 
 # Create a pipeline with StandardScaler and AdaBoostClassifier
 pipeline = Pipeline([
