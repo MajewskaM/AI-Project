@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV, RepeatedStratifiedKFold
 from sklearn.metrics import accuracy_score
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.linear_model import SGDClassifier
@@ -11,7 +11,7 @@ from collections import defaultdict
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
-from sklearn.svm import SVC, LinearSVC
+from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LogisticRegression
@@ -119,11 +119,19 @@ print("Shape of training label: ", y_train.shape)
 print("Shape of test data: ", X_test.shape)
 print("Shape of test label: ", y_test.shape)
 
-base_classifiers = [LogisticRegression(), SVC(), DecisionTreeClassifier(), RandomForestClassifier(), SGDClassifier()]
+# define the model with default hyperparameters
+model = AdaBoostClassifier()
 
-# using the decision tree as the base weak learner
-dt = DecisionTreeClassifier(max_depth=2)
-sgdc = SGDClassifier()
+# define the grid of values to search
+grid = dict()
+grid['n_estimators'] = [10, 50, 100, 500]
+grid['learning_rate'] = [0.0001, 0.001, 0.01, 0.1, 1.0]
+
+# define the evaluation procedure
+cv = RepeatedStratifiedKFold(n_splits=10, n_repeats=3, random_state=1)
+
+# define the grid search procedure
+grid_search = GridSearchCV(estimator=model, param_grid=grid, n_jobs=-1, cv=cv, scoring='accuracy')
 logistic_regression = LogisticRegression(max_iter=1000, solver='saga', tol=0.1, C=10, penalty='l1')
 linear_svc = LinearSVC(C=0.01)
 decision_tree = DecisionTreeClassifier(criterion='gini', max_depth=4)
@@ -131,29 +139,27 @@ random_forest = RandomForestClassifier(max_depth=None, max_features='sqrt', min_
 sgdc_classifier = SGDClassifier(alpha=0.000774263682681127, l1_ratio=0.14, loss='log_loss', penalty='elasticnet')
 base_classifiers = {logistic_regression:'Logistic Regression', linear_svc:'LinearSVC', decision_tree:'Decision Tree', random_forest:'Random Forest', sgdc_classifier:'SGD Classifier'}
 
-model = AdaBoostClassifier(estimator=decision_tree, algorithm='SAMME')
+# Perform grid search for AdaBoostClassifier
+param_grid_ada = {'n_estimators': [10, 50, 100, 500], 'learning_rate': [0.0001, 0.001, 0.01, 0.1, 1.0]}
 
-#data_pipeline = Pipeline([("classifier", AdaBoostClassifier(estimator=dt, n_estimators=50, algorithm='SAMME'))])
-cross_validation_split = ShuffleSplit(n_splits=10, test_size=0.1, random_state=42)
-evaluateResults(model, X_test, y_test, X_train, y_train, cross_validation_split, "AdaBoostClassifier")
+# AdaBoost accuarcy first 10 people, random 10 people
+# Plotting
+fig, ax = plt.subplots()
+accuracy_scores = []
 
+for classifier, name in base_classifiers.items():
+    print("Classifier:", name)
+    ada_clf = AdaBoostClassifier(estimator=classifier, algorithm='SAMME')
+    grid_search_ada = GridSearchCV(ada_clf, param_grid_ada, cv=5, scoring='accuracy', n_jobs=-1).fit(X_train, y_train)
+    print("Best Ada Boost Parameters for " + name + ": " + str(grid_search_ada.best_params_))
+    print()
 
-# 
-param_grid_estimators = {
-    'n_estimators': [10, 50, 100, 300, 500]
-}
-
-# Define parameter grid with different learning rates for AdaBoost
-param_grid_dt = {
-    'learning_rate': [0.001, 0.01, 0.1, 1]  # Learning rate for AdaBoost
-}
-
-# Perform grid search cross-validation
-grid_search = GridSearchCV(ada_sgd_clf, param_grid, cv=5, scoring='accuracy', n_jobs=-1)
-grid_search.fit(X_train, y_train)
-
-# Print best parameters and best score
-print("Best parameters found:", grid_search.best_params_)
-print("Best accuracy score:", grid_search.best_score_)
-
+# Plotting the accuracy scores
+x_labels = ['Logistic Regression', 'LinearSVC', 'Decision Tree', 'Random Forest', 'SGD Classifier']
+ax.bar(x_labels, accuracy_scores)
+ax.set_ylabel('Accuracy')
+ax.set_title('Accuracy of Different Base Classifiers in AdaBoost')
+plt.xticks(rotation=45, ha='right')
+plt.tight_layout()
+plt.show()
 

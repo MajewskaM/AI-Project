@@ -11,12 +11,12 @@ from collections import defaultdict
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
-from sklearn.svm import SVC, LinearSVC
+import sklearn.svm as svm
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
-
 
 # load dataset from specified "source" directory
 def load_data(source_directory):
@@ -44,7 +44,6 @@ def load_data(source_directory):
                         features_list.append(features)
 
     return np.array(features_list), np.array(labels)
-
 
 # training classifiers and evaluating model
 def evaluateResults(model, X_test, y_test, X_train, y_train, cv, name):
@@ -119,41 +118,21 @@ print("Shape of training label: ", y_train.shape)
 print("Shape of test data: ", X_test.shape)
 print("Shape of test label: ", y_test.shape)
 
-base_classifiers = [LogisticRegression(), SVC(), DecisionTreeClassifier(), RandomForestClassifier(), SGDClassifier()]
-
-# using the decision tree as the base weak learner
-dt = DecisionTreeClassifier(max_depth=2)
-sgdc = SGDClassifier()
-logistic_regression = LogisticRegression(max_iter=1000, solver='saga', tol=0.1, C=10, penalty='l1')
-linear_svc = LinearSVC(C=0.01)
-decision_tree = DecisionTreeClassifier(criterion='gini', max_depth=4)
-random_forest = RandomForestClassifier(max_depth=None, max_features='sqrt', min_samples_leaf=1, min_samples_split=2, n_estimators=500)
-sgdc_classifier = SGDClassifier(alpha=0.000774263682681127, l1_ratio=0.14, loss='log_loss', penalty='elasticnet')
-base_classifiers = {logistic_regression:'Logistic Regression', linear_svc:'LinearSVC', decision_tree:'Decision Tree', random_forest:'Random Forest', sgdc_classifier:'SGD Classifier'}
-
-model = AdaBoostClassifier(estimator=decision_tree, algorithm='SAMME')
-
-#data_pipeline = Pipeline([("classifier", AdaBoostClassifier(estimator=dt, n_estimators=50, algorithm='SAMME'))])
-cross_validation_split = ShuffleSplit(n_splits=10, test_size=0.1, random_state=42)
-evaluateResults(model, X_test, y_test, X_train, y_train, cross_validation_split, "AdaBoostClassifier")
-
-
-# 
-param_grid_estimators = {
-    'n_estimators': [10, 50, 100, 300, 500]
+# Define the parameter grid for LogisticRegression
+param_grid_lr = {
+    'logisticregression__C': [0.1, 1, 10, 100],
+    'logisticregression__penalty': ['l1', 'l2', 'elasticnet'],
+    'logisticregression__l1_ratio':[0.05,0.06,0.07,0.08,0.09,0.1,0.12,0.13,0.14,0.15,0.2]
 }
+# Create a pipeline with scaler and logistic regression
+pipe = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000, solver='saga', tol=0.1))
 
-# Define parameter grid with different learning rates for AdaBoost
-param_grid_dt = {
-    'learning_rate': [0.001, 0.01, 0.1, 1]  # Learning rate for AdaBoost
-}
+# Perform grid search for LogisticRegression
+grid_search_lr = GridSearchCV(pipe, param_grid_lr, cv=5, scoring='accuracy', n_jobs=-1, verbose = 2).fit(X_train, y_train)
 
-# Perform grid search cross-validation
-grid_search = GridSearchCV(ada_sgd_clf, param_grid, cv=5, scoring='accuracy', n_jobs=-1)
-grid_search.fit(X_train, y_train)
+# Print the best parameters
+print("Best parameters for LogisticRegression:", grid_search_lr.best_params_)
+print("Best Score for LogisticRegression:", grid_search_lr.best_score_)
 
-# Print best parameters and best score
-print("Best parameters found:", grid_search.best_params_)
-print("Best accuracy score:", grid_search.best_score_)
-
-
+# Evaluate the results
+evaluateResults(grid_search_lr.best_estimator_, X_test, y_test, X_train, y_train, ShuffleSplit(n_splits=10, test_size=0.1, random_state=42), "LogisticRegression")
